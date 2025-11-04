@@ -421,10 +421,22 @@ SELECT
     p.id as procedure_fhir_id,
 
     p.status as proc_status,
-    TRY(date_parse(NULLIF(p.performed_date_time, ''), '%Y-%m-%d')) as proc_performed_date_time,
-    TRY(date_parse(NULLIF(p.performed_period_start, ''), '%Y-%m-%dT%H:%i:%sZ')) as proc_performed_period_start,
-    TRY(date_parse(NULLIF(p.performed_period_end, ''), '%Y-%m-%dT%H:%i:%sZ')) as proc_performed_period_end,
-    TRY(date_parse(NULLIF(p.performed_string, ''), '%Y-%m-%d')) as proc_performed_string,
+    COALESCE(
+        TRY(date_parse(NULLIF(p.performed_date_time, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(p.performed_date_time, ''), '%Y-%m-%d'))
+    ) as proc_performed_date_time,
+    COALESCE(
+        TRY(date_parse(NULLIF(p.performed_period_start, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(p.performed_period_start, ''), '%Y-%m-%d'))
+    ) as proc_performed_period_start,
+    COALESCE(
+        TRY(date_parse(NULLIF(p.performed_period_end, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(p.performed_period_end, ''), '%Y-%m-%d'))
+    ) as proc_performed_period_end,
+    COALESCE(
+        TRY(date_parse(NULLIF(p.performed_string, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(p.performed_string, ''), '%Y-%m-%d'))
+    ) as proc_performed_string,
     p.performed_age_value as proc_performed_age_value,
     p.performed_age_unit as proc_performed_age_unit,
     p.code_text as proc_code_text,
