@@ -67,8 +67,14 @@ SELECT
     CAST(TRY(FROM_ISO8601_TIMESTAMP(dr.date)) AS TIMESTAMP(3)) as doc_date,
     dr.status as doc_status,
     dr.doc_status as doc_doc_status,
-    TRY(date_parse(dr.context_period_start, '%Y-%m-%dT%H:%i:%sZ')) as doc_context_period_start,
-    TRY(date_parse(dr.context_period_end, '%Y-%m-%dT%H:%i:%sZ')) as doc_context_period_end,
+    COALESCE(
+        TRY(date_parse(dr.context_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(dr.context_period_start, '%Y-%m-%d'))
+    ) as doc_context_period_start,
+    COALESCE(
+        TRY(date_parse(dr.context_period_end, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(dr.context_period_end, '%Y-%m-%d'))
+    ) as doc_context_period_end,
     dr.context_facility_type_text as doc_facility_type,
     dr.context_practice_setting_text as doc_practice_setting,
 

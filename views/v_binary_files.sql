@@ -38,8 +38,14 @@ SELECT
     dcat.category_text as dr_category_text,
     TRY(CAST(FROM_ISO8601_TIMESTAMP(NULLIF(dr.date, '')) AS TIMESTAMP(3))) as dr_date,
     dr.description as dr_description,
-    TRY(date_parse(NULLIF(dr.context_period_start, ''), '%Y-%m-%dT%H:%i:%sZ')) as dr_context_period_start,
-    TRY(date_parse(NULLIF(dr.context_period_end, ''), '%Y-%m-%dT%H:%i:%sZ')) as dr_context_period_end,
+    COALESCE(
+        TRY(date_parse(NULLIF(dr.context_period_start, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(dr.context_period_start, ''), '%Y-%m-%d'))
+    ) as dr_context_period_start,
+    COALESCE(
+        TRY(date_parse(NULLIF(dr.context_period_end, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(dr.context_period_end, ''), '%Y-%m-%d'))
+    ) as dr_context_period_end,
     dr.context_facility_type_text as dr_facility_type,
     dr.context_practice_setting_text as dr_practice_setting,
     dr.authenticator_display as dr_authenticator,

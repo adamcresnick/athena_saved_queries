@@ -1,7 +1,10 @@
 CREATE OR REPLACE VIEW fhir_prd_db.v_appointments AS
 SELECT DISTINCT
     a.id as appointment_fhir_id,
-    TRY(date_parse(NULLIF(a.start, ''), '%Y-%m-%d')) as appointment_date,
+    COALESCE(
+        TRY(date_parse(NULLIF(a.start, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(a.start, ''), '%Y-%m-%d'))
+    ) as appointment_date,
     TRY(DATE_DIFF('day',
         DATE(pa.birth_date),
         TRY(CAST(SUBSTR(NULLIF(a.start, ''), 1, 10) AS DATE)))) as age_at_appointment_days,

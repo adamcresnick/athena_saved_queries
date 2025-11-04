@@ -18,7 +18,10 @@ appointments_with_encounters AS (
         -- Appointment details (explicit casts for UNION compatibility)
         CAST(a.status AS VARCHAR) as appointment_status,
         CAST(a.appointment_type_text AS VARCHAR) as appointment_type_text,
-        TRY(date_parse(a.start, '%Y-%m-%dT%H:%i:%sZ')) as appointment_start,
+        COALESCE(
+        TRY(date_parse(a.start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(a.start, '%Y-%m-%d'))
+    ) as appointment_start,
         TRY(date_parse(a."end", '%Y-%m-%dT%H:%i:%sZ')) as appointment_end,
         CAST(a.minutes_duration AS VARCHAR) as appointment_duration_minutes,
         CAST(a.cancelation_reason_text AS VARCHAR) as cancelation_reason_text,

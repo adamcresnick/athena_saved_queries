@@ -72,7 +72,10 @@ SELECT
     sl.encounter_id as mt_encounter_id,
     pl.procedure_id as mt_procedure_id,
     pl.procedure_name as mt_procedure_name,
-    TRY(date_parse(SUBSTR(pl.procedure_date, 1, 10), '%Y-%m-%d')) as mt_procedure_date,
+    COALESCE(
+        TRY(date_parse(SUBSTR(pl.procedure_date, 1, 10), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(SUBSTR(pl.procedure_date, 1, 10), '%Y-%m-%d'))
+    ) as mt_procedure_date,
     pl.procedure_status as mt_procedure_status
 FROM fhir_prd_db.molecular_tests mt
 LEFT JOIN aggregated_results ar ON mt.test_id = ar.test_id

@@ -41,8 +41,14 @@ appointments_with_dates AS (
         rta.patient_fhir_id,
         va.appointment_fhir_id as appointment_id,
         va.appointment_date as appointment_date,
-        TRY(date_parse(NULLIF(va.appt_start, ''), '%Y-%m-%dT%H:%i:%sZ')) as appointment_start,
-        TRY(date_parse(NULLIF(va.appt_end, ''), '%Y-%m-%dT%H:%i:%sZ')) as appointment_end,
+        COALESCE(
+        TRY(date_parse(NULLIF(va.appt_start, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(va.appt_start, ''), '%Y-%m-%d'))
+    ) as appointment_start,
+        COALESCE(
+        TRY(date_parse(NULLIF(va.appt_end, ''), '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(NULLIF(va.appt_end, ''), '%Y-%m-%d'))
+    ) as appointment_end,
         va.appt_status as appointment_status,
         va.appt_appointment_type_text as appointment_type,
         va.appt_description as description,

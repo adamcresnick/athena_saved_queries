@@ -470,9 +470,18 @@ SELECT
     cp.title as cp_title,
     cp.status as cp_status,
     cp.intent as cp_intent,
-    TRY(date_parse(cp.created, '%Y-%m-%dT%H:%i:%sZ')) as cp_created,
-    TRY(date_parse(cp.period_start, '%Y-%m-%dT%H:%i:%sZ')) as cp_period_start,
-    TRY(date_parse(cp.period_end, '%Y-%m-%dT%H:%i:%sZ')) as cp_period_end,
+    COALESCE(
+        TRY(date_parse(cp.created, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.created, '%Y-%m-%d'))
+    ) as cp_created,
+    COALESCE(
+        TRY(date_parse(cp.period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.period_start, '%Y-%m-%d'))
+    ) as cp_period_start,
+    COALESCE(
+        TRY(date_parse(cp.period_end, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.period_end, '%Y-%m-%d'))
+    ) as cp_period_end,
     cp.author_display as cp_author_display,
 
     -- Care plan categories (treatment type classification)

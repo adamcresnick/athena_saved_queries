@@ -101,9 +101,18 @@ SELECT
     mr.encounter_reference as mr_encounter_reference,
     mr.group_identifier_value as mr_group_identifier_value,
     mr.group_identifier_system as mr_group_identifier_system,
-    TRY(date_parse(mr.dispense_request_validity_period_start, '%Y-%m-%dT%H:%i:%sZ')) as mr_validity_period_start,
-    TRY(date_parse(mr.dispense_request_validity_period_end, '%Y-%m-%dT%H:%i:%sZ')) as mr_validity_period_end,
-    TRY(date_parse(mr.authored_on, '%Y-%m-%dT%H:%i:%sZ')) as mr_authored_on,
+    COALESCE(
+        TRY(date_parse(mr.dispense_request_validity_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(mr.dispense_request_validity_period_start, '%Y-%m-%d'))
+    ) as mr_validity_period_start,
+    COALESCE(
+        TRY(date_parse(mr.dispense_request_validity_period_end, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(mr.dispense_request_validity_period_end, '%Y-%m-%d'))
+    ) as mr_validity_period_end,
+    COALESCE(
+        TRY(date_parse(mr.authored_on, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(mr.authored_on, '%Y-%m-%d'))
+    ) as mr_authored_on,
     mr.status as mr_status,
     mr.status_reason_text as mr_status_reason_text,
     mr.priority as mr_priority,
@@ -136,9 +145,18 @@ SELECT
     cp.title as cp_title,
     cp.status as cp_status,
     cp.intent as cp_intent,
-    TRY(date_parse(cp.created, '%Y-%m-%dT%H:%i:%sZ')) as cp_created,
-    TRY(date_parse(cp.period_start, '%Y-%m-%dT%H:%i:%sZ')) as cp_period_start,
-    TRY(date_parse(cp.period_end, '%Y-%m-%dT%H:%i:%sZ')) as cp_period_end,
+    COALESCE(
+        TRY(date_parse(cp.created, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.created, '%Y-%m-%d'))
+    ) as cp_created,
+    COALESCE(
+        TRY(date_parse(cp.period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.period_start, '%Y-%m-%d'))
+    ) as cp_period_start,
+    COALESCE(
+        TRY(date_parse(cp.period_end, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.period_end, '%Y-%m-%d'))
+    ) as cp_period_end,
     cp.author_display as cp_author_display,
     cpc.categories_aggregated as cpc_categories_aggregated,
     cpcon.addresses_aggregated as cpcon_addresses_aggregated,

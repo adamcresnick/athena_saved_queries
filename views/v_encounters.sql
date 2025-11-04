@@ -81,8 +81,14 @@ SELECT
     e.class_display,
     e.service_type_text,
     e.priority_text,
-    TRY(date_parse(e.period_start, '%Y-%m-%dT%H:%i:%sZ')) as period_start,
-    TRY(date_parse(e.period_end, '%Y-%m-%dT%H:%i:%sZ')) as period_end,
+    COALESCE(
+        TRY(date_parse(e.period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(e.period_start, '%Y-%m-%d'))
+    ) as period_start,
+    COALESCE(
+        TRY(date_parse(e.period_end, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(e.period_end, '%Y-%m-%d'))
+    ) as period_end,
     e.length_value,
     e.length_unit,
     e.service_provider_display,

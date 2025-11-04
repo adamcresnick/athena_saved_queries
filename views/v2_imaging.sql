@@ -60,9 +60,18 @@ SELECT
     dr.id as diagnostic_report_id,
     dr.status as report_status,
     dr.conclusion as report_conclusion,
-    TRY(date_parse(dr.issued, '%Y-%m-%dT%H:%i:%sZ')) as report_issued,
-    TRY(date_parse(dr.effective_period_start, '%Y-%m-%dT%H:%i:%sZ')) as report_effective_period_start,
-    TRY(date_parse(dr.effective_period_stop, '%Y-%m-%dT%H:%i:%sZ')) as report_effective_period_stop,
+    COALESCE(
+        TRY(date_parse(dr.issued, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(dr.issued, '%Y-%m-%d'))
+    ) as report_issued,
+    COALESCE(
+        TRY(date_parse(dr.effective_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(dr.effective_period_start, '%Y-%m-%d'))
+    ) as report_effective_period_start,
+    COALESCE(
+        TRY(date_parse(dr.effective_period_stop, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(dr.effective_period_stop, '%Y-%m-%d'))
+    ) as report_effective_period_stop,
     rc.category_text,
 
     -- Age calculations

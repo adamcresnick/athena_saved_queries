@@ -6,7 +6,10 @@ SELECT
     cp.status as cp_status,
     cp.intent as cp_intent,
     cp.title as cp_title,
-    TRY(date_parse(cp.period_start, '%Y-%m-%dT%H:%i:%sZ')) as cp_period_start,
+    COALESCE(
+        TRY(date_parse(cp.period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(cp.period_start, '%Y-%m-%d'))
+    ) as cp_period_start,
     TRY(date_parse(cp.period_end, '%Y-%m-%dT%H:%i:%sZ')) as cp_period_end
 FROM fhir_prd_db.care_plan_part_of cppo
 INNER JOIN fhir_prd_db.care_plan cp ON cppo.care_plan_id = cp.id
