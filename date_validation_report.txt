@@ -1,0 +1,426 @@
+====================================================================================================
+COMPREHENSIVE DATE COLUMN VALIDATION FOR DEPLOYED ATHENA VIEWS
+====================================================================================================
+
+====================================================================================================
+VIEW: v_oid_reference.sql
+====================================================================================================
+❌ Could not extract view name from v_oid_reference.sql
+
+====================================================================================================
+VIEW: v_patient_demographics.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_patient_demographics
+
+Date operations found: 1
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+7      pd_birth_date                            date_parse single format %Y-%m-%d (RISKY)         
+
+⚠️  POTENTIAL ISSUES FOUND (1):
+   - Line 7: pd_birth_date uses date_parse single format %Y-%m-%d (RISKY)
+
+====================================================================================================
+VIEW: v_encounters.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_encounters
+
+Date operations found: 2
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+84     period_start                             date_parse single format ISO8601 (RISKY)          
+85     period_end                               date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (2):
+   - Line 84: period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 85: period_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_diagnoses.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_diagnoses
+✅ No date parsing operations found
+
+====================================================================================================
+VIEW: v_problem_list_diagnoses.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_problem_list_diagnoses
+✅ No date parsing operations found
+
+====================================================================================================
+VIEW: v_binary_files.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_binary_files
+
+Date operations found: 3
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+39     TIMESTAMP                                CAST AS TIMESTAMP                                 
+41     dr_context_period_start                  date_parse single format ISO8601 (RISKY)          
+42     dr_context_period_end                    date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (2):
+   - Line 41: dr_context_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 42: dr_context_period_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v2_procedure_specimen_link.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_procedure_specimen_link
+
+Date operations found: 2
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+16     unknown                                  date_parse single format ISO8601 (RISKY)          
+17     unknown                                  date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (2):
+   - Line 16: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 17: unknown uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v2_procedures_tumor.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_procedures_tumor
+
+Date operations found: 8
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+425    unknown                                  date_parse single format ISO8601 (RISKY)          
+426    unknown                                  date_parse single format %Y-%m-%d (RISKY)         
+429    unknown                                  date_parse single format ISO8601 (RISKY)          
+430    unknown                                  date_parse single format %Y-%m-%d (RISKY)         
+433    unknown                                  date_parse single format ISO8601 (RISKY)          
+434    unknown                                  date_parse single format %Y-%m-%d (RISKY)         
+437    unknown                                  date_parse single format ISO8601 (RISKY)          
+438    unknown                                  date_parse single format %Y-%m-%d (RISKY)         
+
+⚠️  POTENTIAL ISSUES FOUND (8):
+   - Line 425: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 426: unknown uses date_parse single format %Y-%m-%d (RISKY)
+   - Line 429: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 430: unknown uses date_parse single format %Y-%m-%d (RISKY)
+   - Line 433: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 434: unknown uses date_parse single format %Y-%m-%d (RISKY)
+   - Line 437: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 438: unknown uses date_parse single format %Y-%m-%d (RISKY)
+
+====================================================================================================
+VIEW: v2_document_reference_enriched.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_document_reference_enriched
+✅ No date parsing operations found
+
+====================================================================================================
+VIEW: v2_imaging.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_imaging
+
+Date operations found: 5
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+14     TIMESTAMP                                CAST AS TIMESTAMP                                 
+32     TIMESTAMP                                CAST AS TIMESTAMP                                 
+63     report_issued                            date_parse single format ISO8601 (RISKY)          
+64     report_effective_period_start            date_parse single format ISO8601 (RISKY)          
+65     report_effective_period_stop             date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (3):
+   - Line 63: report_issued uses date_parse single format ISO8601 (RISKY)
+   - Line 64: report_effective_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 65: report_effective_period_stop uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_medications.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_medications
+
+Date operations found: 8
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+96     medication_start_date                    date_parse with COALESCE (GOOD)                   
+97     medication_stop_date                     date_parse with COALESCE (GOOD)                   
+104    mr_validity_period_start                 date_parse single format ISO8601 (RISKY)          
+105    mr_validity_period_end                   date_parse single format ISO8601 (RISKY)          
+106    mr_authored_on                           date_parse single format ISO8601 (RISKY)          
+139    cp_created                               date_parse single format ISO8601 (RISKY)          
+140    cp_period_start                          date_parse single format ISO8601 (RISKY)          
+141    cp_period_end                            date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (6):
+   - Line 104: mr_validity_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 105: mr_validity_period_end uses date_parse single format ISO8601 (RISKY)
+   - Line 106: mr_authored_on uses date_parse single format ISO8601 (RISKY)
+   - Line 139: cp_created uses date_parse single format ISO8601 (RISKY)
+   - Line 140: cp_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 141: cp_period_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_chemo_medications.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_chemo_medications
+
+Date operations found: 4
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+452    TIMESTAMP                                CAST AS TIMESTAMP                                 
+473    cp_created                               date_parse single format ISO8601 (RISKY)          
+474    cp_period_start                          date_parse single format ISO8601 (RISKY)          
+475    cp_period_end                            date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (3):
+   - Line 473: cp_created uses date_parse single format ISO8601 (RISKY)
+   - Line 474: cp_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 475: cp_period_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_chemo_treatment_episodes.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_chemo_treatment_episodes
+
+Date operations found: 3
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+17     unknown                                  date_parse single format ISO8601 (RISKY)          
+18     unknown                                  date_parse single format ISO8601 (RISKY)          
+22     episode_stop_datetime                    date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (3):
+   - Line 17: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 18: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 22: episode_stop_datetime uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_radiation_documents.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_radiation_documents
+
+Date operations found: 3
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+67     TIMESTAMP                                CAST AS TIMESTAMP                                 
+70     doc_context_period_start                 date_parse single format ISO8601 (RISKY)          
+71     doc_context_period_end                   date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (2):
+   - Line 70: doc_context_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 71: doc_context_period_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_radiation_care_plan_hierarchy.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_radiation_care_plan_hierarchy
+
+Date operations found: 2
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+9      cp_period_start                          date_parse single format ISO8601 (RISKY)          
+10     cp_period_end                            date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (2):
+   - Line 9: cp_period_start uses date_parse single format ISO8601 (RISKY)
+   - Line 10: cp_period_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v2_radiation_treatment_episodes.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_radiation_treatment_episodes
+
+Date operations found: 12
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+65     TIMESTAMP                                CAST AS TIMESTAMP                                 
+66     TIMESTAMP                                CAST AS TIMESTAMP                                 
+67     TIMESTAMP                                CAST AS TIMESTAMP                                 
+68     TIMESTAMP                                CAST AS TIMESTAMP                                 
+69     TIMESTAMP                                CAST AS TIMESTAMP                                 
+70     TIMESTAMP                                CAST AS TIMESTAMP                                 
+214    TIMESTAMP                                CAST AS TIMESTAMP                                 
+215    TIMESTAMP                                CAST AS TIMESTAMP                                 
+216    TIMESTAMP                                CAST AS TIMESTAMP                                 
+217    TIMESTAMP                                CAST AS TIMESTAMP                                 
+218    TIMESTAMP                                CAST AS TIMESTAMP                                 
+219    TIMESTAMP                                CAST AS TIMESTAMP                                 
+
+====================================================================================================
+VIEW: v2_radiation_episode_enrichment.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_radiation_episode_enrichment
+
+Date operations found: 2
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+44     appointment_start                        date_parse single format ISO8601 (RISKY)          
+45     appointment_end                          date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (2):
+   - Line 44: appointment_start uses date_parse single format ISO8601 (RISKY)
+   - Line 45: appointment_end uses date_parse single format ISO8601 (RISKY)
+
+====================================================================================================
+VIEW: v_molecular_tests.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_molecular_tests
+
+Date operations found: 2
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+70     TIMESTAMP                                CAST AS TIMESTAMP                                 
+75     mt_procedure_date                        date_parse single format %Y-%m-%d (RISKY)         
+
+⚠️  POTENTIAL ISSUES FOUND (1):
+   - Line 75: mt_procedure_date uses date_parse single format %Y-%m-%d (RISKY)
+
+====================================================================================================
+VIEW: v_pathology_diagnostics.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_pathology_diagnostics
+
+Date operations found: 10
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+39     TIMESTAMP                                CAST AS TIMESTAMP                                 
+63     TIMESTAMP                                CAST AS TIMESTAMP                                 
+84     TIMESTAMP                                CAST AS TIMESTAMP                                 
+89     TIMESTAMP                                CAST AS TIMESTAMP                                 
+178    TIMESTAMP                                CAST AS TIMESTAMP                                 
+331    TIMESTAMP                                CAST AS TIMESTAMP                                 
+494    unknown                                  date_parse single format ISO8601 (RISKY)          
+495    unknown                                  date_parse single format %Y-%m-%d (RISKY)         
+498    unknown                                  date_parse single format ISO8601 (RISKY)          
+499    unknown                                  date_parse single format %Y-%m-%d (RISKY)         
+
+⚠️  POTENTIAL ISSUES FOUND (4):
+   - Line 494: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 495: unknown uses date_parse single format %Y-%m-%d (RISKY)
+   - Line 498: unknown uses date_parse single format ISO8601 (RISKY)
+   - Line 499: unknown uses date_parse single format %Y-%m-%d (RISKY)
+
+====================================================================================================
+VIEW: v2_appointments.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_appointments
+
+Date operations found: 1
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+4      appointment_date                         date_parse single format %Y-%m-%d (RISKY)         
+
+⚠️  POTENTIAL ISSUES FOUND (1):
+   - Line 4: appointment_date uses date_parse single format %Y-%m-%d (RISKY)
+
+====================================================================================================
+VIEW: v_visits_unified.sql
+====================================================================================================
+Athena view name: fhir_prd_db.v_visits_unified
+
+Date operations found: 8
+Line   Column                                   Type                                              
+----------------------------------------------------------------------------------------------------
+8      encounter_start                          date_parse single format ISO8601 (RISKY)          
+9      encounter_end                            date_parse single format ISO8601 (RISKY)          
+21     appointment_start                        date_parse single format ISO8601 (RISKY)          
+22     appointment_end                          date_parse single format ISO8601 (RISKY)          
+64     VARCHAR                                  CAST AS TIMESTAMP                                 
+65     VARCHAR                                  CAST AS TIMESTAMP                                 
+73     encounter_start                          date_parse single format ISO8601 (RISKY)          
+74     encounter_end                            date_parse single format ISO8601 (RISKY)          
+
+⚠️  POTENTIAL ISSUES FOUND (6):
+   - Line 8: encounter_start uses date_parse single format ISO8601 (RISKY)
+   - Line 9: encounter_end uses date_parse single format ISO8601 (RISKY)
+   - Line 21: appointment_start uses date_parse single format ISO8601 (RISKY)
+   - Line 22: appointment_end uses date_parse single format ISO8601 (RISKY)
+   - Line 73: encounter_start uses date_parse single format ISO8601 (RISKY)
+   - Line 74: encounter_end uses date_parse single format ISO8601 (RISKY)
+
+
+====================================================================================================
+SUMMARY
+====================================================================================================
+
+Total views analyzed: 20
+Views with date operations: 17
+Views with potential issues: 16
+
+⚠️  VIEWS REQUIRING FIXES:
+
+   v_patient_demographics.sql
+      - Line 7: pd_birth_date uses date_parse single format %Y-%m-%d (RISKY)
+
+   v_encounters.sql
+      - Line 84: period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 85: period_end uses date_parse single format ISO8601 (RISKY)
+
+   v_binary_files.sql
+      - Line 41: dr_context_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 42: dr_context_period_end uses date_parse single format ISO8601 (RISKY)
+
+   v2_procedure_specimen_link.sql
+      - Line 16: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 17: unknown uses date_parse single format ISO8601 (RISKY)
+
+   v2_procedures_tumor.sql
+      - Line 425: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 426: unknown uses date_parse single format %Y-%m-%d (RISKY)
+      - Line 429: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 430: unknown uses date_parse single format %Y-%m-%d (RISKY)
+      - Line 433: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 434: unknown uses date_parse single format %Y-%m-%d (RISKY)
+      - Line 437: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 438: unknown uses date_parse single format %Y-%m-%d (RISKY)
+
+   v2_imaging.sql
+      - Line 63: report_issued uses date_parse single format ISO8601 (RISKY)
+      - Line 64: report_effective_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 65: report_effective_period_stop uses date_parse single format ISO8601 (RISKY)
+
+   v_medications.sql
+      - Line 104: mr_validity_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 105: mr_validity_period_end uses date_parse single format ISO8601 (RISKY)
+      - Line 106: mr_authored_on uses date_parse single format ISO8601 (RISKY)
+      - Line 139: cp_created uses date_parse single format ISO8601 (RISKY)
+      - Line 140: cp_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 141: cp_period_end uses date_parse single format ISO8601 (RISKY)
+
+   v_chemo_medications.sql
+      - Line 473: cp_created uses date_parse single format ISO8601 (RISKY)
+      - Line 474: cp_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 475: cp_period_end uses date_parse single format ISO8601 (RISKY)
+
+   v_chemo_treatment_episodes.sql
+      - Line 17: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 18: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 22: episode_stop_datetime uses date_parse single format ISO8601 (RISKY)
+
+   v_radiation_documents.sql
+      - Line 70: doc_context_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 71: doc_context_period_end uses date_parse single format ISO8601 (RISKY)
+
+   v_radiation_care_plan_hierarchy.sql
+      - Line 9: cp_period_start uses date_parse single format ISO8601 (RISKY)
+      - Line 10: cp_period_end uses date_parse single format ISO8601 (RISKY)
+
+   v2_radiation_episode_enrichment.sql
+      - Line 44: appointment_start uses date_parse single format ISO8601 (RISKY)
+      - Line 45: appointment_end uses date_parse single format ISO8601 (RISKY)
+
+   v_molecular_tests.sql
+      - Line 75: mt_procedure_date uses date_parse single format %Y-%m-%d (RISKY)
+
+   v_pathology_diagnostics.sql
+      - Line 494: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 495: unknown uses date_parse single format %Y-%m-%d (RISKY)
+      - Line 498: unknown uses date_parse single format ISO8601 (RISKY)
+      - Line 499: unknown uses date_parse single format %Y-%m-%d (RISKY)
+
+   v2_appointments.sql
+      - Line 4: appointment_date uses date_parse single format %Y-%m-%d (RISKY)
+
+   v_visits_unified.sql
+      - Line 8: encounter_start uses date_parse single format ISO8601 (RISKY)
+      - Line 9: encounter_end uses date_parse single format ISO8601 (RISKY)
+      - Line 21: appointment_start uses date_parse single format ISO8601 (RISKY)
+      - Line 22: appointment_end uses date_parse single format ISO8601 (RISKY)
+      - Line 73: encounter_start uses date_parse single format ISO8601 (RISKY)
+      - Line 74: encounter_end uses date_parse single format ISO8601 (RISKY)
