@@ -490,8 +490,14 @@ problem_list_diagnoses AS (
         ts.patient_fhir_id,
         'problem_list_diagnosis' as diagnostic_source,
         c.id as source_id,
-        date_parse(c.onset_date_time, '%Y-%m-%dT%H:%i:%sZ') as diagnostic_datetime,
-        TRY(date_parse(CAST(c.onset_date_time AS VARCHAR), '%Y-%m-%d')) as diagnostic_date,
+        COALESCE(
+            TRY(date_parse(c.onset_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(c.onset_date_time, '%Y-%m-%d'))
+        ) as diagnostic_datetime,
+        DATE(COALESCE(
+            TRY(date_parse(c.onset_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(c.onset_date_time, '%Y-%m-%d'))
+        )) as diagnostic_date,
 
         -- Diagnosis identification
         c.code_text as diagnostic_name,
