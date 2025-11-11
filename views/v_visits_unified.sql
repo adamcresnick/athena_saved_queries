@@ -5,8 +5,14 @@ WITH appointment_encounter_links AS (
         SUBSTRING(ea.appointment_reference, 13) as appointment_id,  -- Remove "Appointment/" prefix
         ea.encounter_id,
         e.status as encounter_status,
-        date_parse(e.period_start, '%Y-%m-%dT%H:%i:%sZ') as encounter_start,
-        date_parse(e.period_end, '%Y-%m-%dT%H:%i:%sZ') as encounter_end
+        COALESCE(
+            TRY(date_parse(e.period_start, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(e.period_start, '%Y-%m-%d'))
+        ) as encounter_start,
+        COALESCE(
+            TRY(date_parse(e.period_end, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(e.period_end, '%Y-%m-%d'))
+        ) as encounter_end
     FROM fhir_prd_db.encounter_appointment ea
     LEFT JOIN fhir_prd_db.encounter e ON ea.encounter_id = e.id
 ),
@@ -19,10 +25,13 @@ appointments_with_encounters AS (
         CAST(a.status AS VARCHAR) as appointment_status,
         CAST(a.appointment_type_text AS VARCHAR) as appointment_type_text,
         COALESCE(
-        TRY(date_parse(a.start, '%Y-%m-%dT%H:%i:%sZ')),
-        TRY(date_parse(a.start, '%Y-%m-%d'))
-    ) as appointment_start,
-        TRY(date_parse(a."end", '%Y-%m-%dT%H:%i:%sZ')) as appointment_end,
+            TRY(date_parse(a.start, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(a.start, '%Y-%m-%d'))
+        ) as appointment_start,
+        COALESCE(
+            TRY(date_parse(a."end", '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(a."end", '%Y-%m-%d'))
+        ) as appointment_end,
         CAST(a.minutes_duration AS VARCHAR) as appointment_duration_minutes,
         CAST(a.cancelation_reason_text AS VARCHAR) as cancelation_reason_text,
         CAST(a.description AS VARCHAR) as appointment_description,
@@ -64,8 +73,8 @@ encounters_without_appointments AS (
         -- Appointment details (NULL for walk-ins) - types must match appointments_with_encounters
         CAST(NULL AS VARCHAR) as appointment_status,
         CAST(NULL AS VARCHAR) as appointment_type_text,
-        TRY(CAST(CAST(NULL AS VARCHAR) AS TIMESTAMP(3))) as appointment_start,
-        TRY(CAST(CAST(NULL AS VARCHAR) AS TIMESTAMP(3))) as appointment_end,
+        CAST(NULL AS TIMESTAMP) as appointment_start,
+        CAST(NULL AS TIMESTAMP) as appointment_end,
         CAST(NULL AS VARCHAR) as appointment_duration_minutes,
         CAST(NULL AS VARCHAR) as cancelation_reason_text,
         CAST(NULL AS VARCHAR) as appointment_description,
@@ -73,8 +82,14 @@ encounters_without_appointments AS (
         -- Encounter details
         CAST(e.id AS VARCHAR) as encounter_id,
         CAST(e.status AS VARCHAR) as encounter_status,
-        date_parse(e.period_start, '%Y-%m-%dT%H:%i:%sZ') as encounter_start,
-        date_parse(e.period_end, '%Y-%m-%dT%H:%i:%sZ') as encounter_end,
+        COALESCE(
+            TRY(date_parse(e.period_start, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(e.period_start, '%Y-%m-%d'))
+        ) as encounter_start,
+        COALESCE(
+            TRY(date_parse(e.period_end, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(e.period_end, '%Y-%m-%d'))
+        ) as encounter_end,
 
         -- Visit type
         'walk_in_unscheduled' as visit_type,
@@ -145,15 +160,11 @@ SELECT
     dv.encounter_end,
 
     -- Calculate age at visit (use appointment or encounter date)
-    TRY(DATE_DIFF('day',
-        DATE(pa.birth_date),
-        DATE(COALESCE(dv.appointment_start, dv.encounter_start)))) as age_at_visit_days,
+    TRY(DATE_DIFF('day', DATE(pa.birth_date), DATE(COALESCE(dv.appointment_start, dv.encounter_start)))) as age_at_visit_days,
 
     -- Visit date (earliest of appointment or encounter)
     DATE(COALESCE(dv.appointment_start, dv.encounter_start)) as visit_date
 
 FROM deduplicated_visits dv
 LEFT JOIN fhir_prd_db.patient_access pa ON dv.patient_fhir_id = pa.id
-WHERE dv.row_rank = 1  -- Only keep primary row per visit
-
-ORDER BY dv.patient_fhir_id, visit_date, dv.appointment_start, dv.encounter_start;
+WHERE dv.row_rank = 1;  -- Only keep primary row per visit
