@@ -1,0 +1,456 @@
+-- v_problem_list_diagnoses_v2: Comprehensive clinical findings from all FHIR code sources
+--
+-- PURPOSE: Aggregates diagnoses, procedures, observations, and other coded clinical data
+-- from all 12 FHIR tables with code_coding_system columns. Deduplicates codes per patient
+-- to avoid redundancy when the same finding appears in multiple sources.
+--
+-- CODE FILTERING: Only includes SNOMED CT and ICD-10-CM codes (matching original table scope)
+--
+-- DEDUPLICATION STRATEGY: ROW_NUMBER() partitioned by (patient_fhir_id, code, coding_system)
+-- keeps only the earliest occurrence (by datetime) per unique patient + code combination.
+--
+-- SOURCE TABLES (12 total):
+--   1. condition_code_coding (diagnoses - SNOMED/ICD)
+--   2. procedure_code_coding (procedures - CPT/SNOMED)
+--   3. observation_code_coding (labs/vitals - LOINC/SNOMED)
+--   4. medication_code_coding (medications - RxNorm/SNOMED)
+--   5. allergy_intolerance_code_coding (allergies - SNOMED)
+--   6. diagnostic_report_code_coding (reports - LOINC)
+--   7. immunization_vaccine_code_coding (vaccines - CVX)
+--   8. list_code_coding (list types - LOINC)
+--   9. observation_effective_timing_code_coding (timing - EventTiming)
+--  10. request_group_code_coding (care plans)
+--  11. service_request_code_coding (orders - LOINC/SNOMED)
+--  12. v_procedures_tumor.pcc_code_coding_system (view-level codes)
+
+CREATE OR REPLACE VIEW fhir_prd_db.v_problem_list_diagnoses_v2 AS
+
+WITH
+
+-- 1. Condition resources (Problem List Items, Encounters, Health Concerns)
+condition_findings AS (
+    SELECT
+        REPLACE(c.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        c.id as source_id,
+        'condition' as source_type,
+        COALESCE(
+            TRY(date_parse(c.onset_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(c.recorded_date, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(c.onset_date_time, '%Y-%m-%d')),
+            TRY(date_parse(c.recorded_date, '%Y-%m-%d'))
+        ) as finding_datetime,
+        c.code_text as finding_name,
+        c.clinical_status_text,
+        c.verification_status_text,
+        COALESCE(ccat.category_text, 'Condition') as category,
+        -- ICD-10 codes
+        icd10.code_coding_code as icd10_code,
+        icd10.code_coding_display as icd10_display,
+        -- SNOMED codes
+        snomed.code_coding_code as snomed_code,
+        snomed.code_coding_display as snomed_display,
+        -- Generic code fields for deduplication
+        COALESCE(snomed.code_coding_code, icd10.code_coding_code) as code,
+        COALESCE(snomed.code_coding_display, icd10.code_coding_display) as code_display,
+        CASE
+            WHEN snomed.code_coding_code IS NOT NULL THEN 'http://snomed.info/sct'
+            WHEN icd10.code_coding_code IS NOT NULL THEN 'http://hl7.org/fhir/sid/icd-10-cm'
+        END as coding_system
+    FROM fhir_prd_db.condition c
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(c.subject_reference, 'Patient/', '') = pa.id
+    LEFT JOIN fhir_prd_db.condition_category ccat ON c.id = ccat.condition_id
+    LEFT JOIN fhir_prd_db.condition_code_coding as icd10 ON c.id = icd10.condition_id
+        AND icd10.code_coding_system = 'http://hl7.org/fhir/sid/icd-10-cm'
+    LEFT JOIN fhir_prd_db.condition_code_coding as snomed ON c.id = snomed.condition_id
+        AND snomed.code_coding_system = 'http://snomed.info/sct'
+    WHERE (snomed.code_coding_code IS NOT NULL OR icd10.code_coding_code IS NOT NULL)
+),
+
+-- 2. Procedure resources (surgical procedures, interventions)
+procedure_findings AS (
+    SELECT
+        REPLACE(p.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        p.id as source_id,
+        'procedure' as source_type,
+        COALESCE(
+            TRY(date_parse(p.performed_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(p.performed_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(p.performed_date_time, '%Y-%m-%d'))
+        ) as finding_datetime,
+        p.code_text as finding_name,
+        p.status_text as clinical_status_text,
+        NULL as verification_status_text,
+        'Procedure' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        pc.code_coding_code as snomed_code,  -- Could be CPT or SNOMED
+        pc.code_coding_display as snomed_display,
+        pc.code_coding_code as code,
+        pc.code_coding_display as code_display,
+        pc.code_coding_system as coding_system
+    FROM fhir_prd_db.procedure p
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(p.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.procedure_code_coding pc ON p.id = pc.procedure_id
+    WHERE pc.code_coding_code IS NOT NULL
+        AND pc.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+),
+
+-- 3. Observation resources (labs, vitals, assessments)
+observation_findings AS (
+    SELECT
+        REPLACE(o.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        o.id as source_id,
+        'observation' as source_type,
+        COALESCE(
+            TRY(date_parse(o.effective_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(o.effective_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(o.issued, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(o.effective_date_time, '%Y-%m-%d'))
+        ) as finding_datetime,
+        o.code_text as finding_name,
+        o.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Observation' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        oc.code_coding_code as snomed_code,  -- Typically LOINC
+        oc.code_coding_display as snomed_display,
+        oc.code_coding_code as code,
+        oc.code_coding_display as code_display,
+        oc.code_coding_system as coding_system
+    FROM fhir_prd_db.observation o
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(o.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.observation_code_coding oc ON o.id = oc.observation_id
+    WHERE oc.code_coding_code IS NOT NULL
+        AND oc.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+),
+
+-- 4. DiagnosticReport resources (pathology, radiology, lab reports)
+diagnostic_report_findings AS (
+    SELECT
+        REPLACE(dr.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        dr.id as source_id,
+        'diagnostic_report' as source_type,
+        COALESCE(
+            TRY(date_parse(dr.effective_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(dr.issued, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(dr.effective_date_time, '%Y-%m-%d'))
+        ) as finding_datetime,
+        dr.code_text as finding_name,
+        dr.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Diagnostic Report' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        drc.code_coding_code as snomed_code,
+        drc.code_coding_display as snomed_display,
+        drc.code_coding_code as code,
+        drc.code_coding_display as code_display,
+        drc.code_coding_system as coding_system
+    FROM fhir_prd_db.diagnostic_report dr
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(dr.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.diagnostic_report_code_coding drc ON dr.id = drc.diagnostic_report_id
+    WHERE drc.code_coding_code IS NOT NULL
+        AND drc.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+),
+
+-- 5. MedicationRequest resources (prescriptions, administrations)
+medication_findings AS (
+    SELECT
+        REPLACE(m.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        m.id as source_id,
+        'medication' as source_type,
+        COALESCE(
+            TRY(date_parse(m.authored_on, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(m.authored_on, '%Y-%m-%d'))
+        ) as finding_datetime,
+        m.code_text as finding_name,
+        m.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Medication' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        mc.code_coding_code as snomed_code,  -- Typically RxNorm
+        mc.code_coding_display as snomed_display,
+        mc.code_coding_code as code,
+        mc.code_coding_display as code_display,
+        mc.code_coding_system as coding_system
+    FROM fhir_prd_db.medication_request m
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(m.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.medication_code_coding mc ON m.id = mc.medication_request_id
+    WHERE mc.code_coding_code IS NOT NULL
+        AND mc.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+),
+
+-- 6. AllergyIntolerance resources
+allergy_findings AS (
+    SELECT
+        REPLACE(ai.patient_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        ai.id as source_id,
+        'allergy_intolerance' as source_type,
+        COALESCE(
+            TRY(date_parse(ai.onset_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(ai.recorded_date, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(ai.onset_date_time, '%Y-%m-%d'))
+        ) as finding_datetime,
+        ai.code_text as finding_name,
+        ai.clinical_status_text,
+        ai.verification_status_text,
+        'Allergy/Intolerance' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        ac.code_coding_code as snomed_code,
+        ac.code_coding_display as snomed_display,
+        ac.code_coding_code as code,
+        ac.code_coding_display as code_display,
+        ac.code_coding_system as coding_system
+    FROM fhir_prd_db.allergy_intolerance ai
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(ai.patient_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.allergy_intolerance_code_coding ac ON ai.id = ac.allergy_intolerance_id
+    WHERE ac.code_coding_code IS NOT NULL
+        AND ac.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+),
+
+-- 7. Immunization resources
+immunization_findings AS (
+    SELECT
+        REPLACE(i.patient_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        i.id as source_id,
+        'immunization' as source_type,
+        COALESCE(
+            TRY(date_parse(i.occurrence_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(i.recorded, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(i.occurrence_date_time, '%Y-%m-%d'))
+        ) as finding_datetime,
+        i.vaccine_code_text as finding_name,
+        i.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Immunization' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        ic.vaccine_code_coding_code as snomed_code,  -- Typically CVX
+        ic.vaccine_code_coding_display as snomed_display,
+        ic.vaccine_code_coding_code as code,
+        ic.vaccine_code_coding_display as code_display,
+        ic.vaccine_code_coding_system as coding_system
+    FROM fhir_prd_db.immunization i
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(i.patient_reference, 'Patient/', '') = pa.id
+    WHERE ic.vaccine_code_coding_code IS NOT NULL
+        AND ic.vaccine_code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+    WHERE ic.vaccine_code_coding_code IS NOT NULL
+),
+
+-- 8. ServiceRequest resources (lab orders, procedure orders)
+service_request_findings AS (
+    SELECT
+        REPLACE(sr.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        sr.id as source_id,
+        'service_request' as source_type,
+        COALESCE(
+            TRY(date_parse(sr.authored_on, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(sr.authored_on, '%Y-%m-%d'))
+        ) as finding_datetime,
+        sr.code_text as finding_name,
+        sr.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Service Request' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        src.code_coding_code as snomed_code,
+        src.code_coding_display as snomed_display,
+        src.code_coding_code as code,
+        src.code_coding_display as code_display,
+        src.code_coding_system as coding_system
+    FROM fhir_prd_db.service_request sr
+    WHERE src.code_coding_code IS NOT NULL
+        AND src.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+    INNER JOIN fhir_prd_db.service_request_code_coding src ON sr.id = src.service_request_id
+    WHERE src.code_coding_code IS NOT NULL
+),
+
+-- 9. List resources (problem lists, care plans, goal lists)
+list_findings AS (
+    SELECT
+        REPLACE(l.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        l.id as source_id,
+        'list' as source_type,
+        COALESCE(
+            TRY(date_parse(l.date_element, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(l.date_element, '%Y-%m-%d'))
+        ) as finding_datetime,
+        l.title as finding_name,
+        l.status as clinical_status_text,
+        NULL as verification_status_text,
+        'List' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        lc.code_coding_code as snomed_code,
+        lc.code_coding_display as snomed_display,
+        lc.code_coding_code as code,
+        lc.code_coding_display as code_display,
+        lc.code_coding_system as coding_system
+    WHERE lc.code_coding_code IS NOT NULL
+        AND lc.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(l.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.list_code_coding lc ON l.id = lc.list_id
+    WHERE lc.code_coding_code IS NOT NULL
+),
+
+-- 10. RequestGroup resources (care plans, protocols, order sets)
+request_group_findings AS (
+    SELECT
+        REPLACE(rg.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        rg.id as source_id,
+        'request_group' as source_type,
+        COALESCE(
+            TRY(date_parse(rg.authored_on, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(rg.authored_on, '%Y-%m-%d'))
+        ) as finding_datetime,
+        rg.code_text as finding_name,
+        rg.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Request Group' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        rgc.code_coding_code as snomed_code,
+        rgc.code_coding_display as snomed_display,
+        rgc.code_coding_code as code,
+        rgc.code_coding_display as code_display,
+    WHERE rgc.code_coding_code IS NOT NULL
+        AND rgc.code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+    FROM fhir_prd_db.request_group rg
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(rg.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.request_group_code_coding rgc ON rg.id = rgc.request_group_id
+    WHERE rgc.code_coding_code IS NOT NULL
+),
+
+-- 11. Observation timing codes (administration timing, frequency)
+observation_timing_findings AS (
+    SELECT
+        REPLACE(o.subject_reference, 'Patient/', '') as patient_fhir_id,
+        pa.mrn,
+        o.id as source_id,
+        'observation_timing' as source_type,
+        COALESCE(
+            TRY(date_parse(o.effective_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(o.effective_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+            TRY(date_parse(o.effective_date_time, '%Y-%m-%d'))
+        ) as finding_datetime,
+        o.code_text as finding_name,
+        o.status as clinical_status_text,
+        NULL as verification_status_text,
+        'Observation Timing' as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        otc.effective_timing_code_coding_code as snomed_code,
+        otc.effective_timing_code_coding_display as snomed_display,
+        otc.effective_timing_code_coding_code as code,
+    WHERE otc.effective_timing_code_coding_code IS NOT NULL
+        AND otc.effective_timing_code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+        otc.effective_timing_code_coding_system as coding_system
+    FROM fhir_prd_db.observation o
+    INNER JOIN fhir_prd_db.patient_access pa ON REPLACE(o.subject_reference, 'Patient/', '') = pa.id
+    INNER JOIN fhir_prd_db.observation_effective_timing_code_coding otc ON o.id = otc.observation_id
+    WHERE otc.effective_timing_code_coding_code IS NOT NULL
+),
+
+-- 12. v_procedures_tumor codes (classified procedure codes from materialized view)
+-- Note: This captures additional procedure classification codes not in raw procedure table
+procedure_tumor_findings AS (
+    SELECT
+        vpt.patient_fhir_id,
+        pa.mrn,
+        vpt.procedure_fhir_id as source_id,
+        'procedure_tumor_view' as source_type,
+        COALESCE(
+            vpt.proc_performed_date_time,
+            vpt.proc_performed_period_start
+        ) as finding_datetime,
+        vpt.proc_code_text as finding_name,
+        NULL as clinical_status_text,
+        NULL as verification_status_text,
+        vpt.procedure_classification as category,
+        NULL as icd10_code,
+        NULL as icd10_display,
+        vpt.pcc_code_coding_code as snomed_code,
+    WHERE vpt.pcc_code_coding_code IS NOT NULL
+        AND vpt.pcc_code_coding_system IN ('http://snomed.info/sct', 'http://hl7.org/fhir/sid/icd-10-cm')
+        vpt.pcc_code_coding_code as code,
+        vpt.pcc_code_coding_display as code_display,
+        vpt.pcc_code_coding_system as coding_system
+    FROM fhir_prd_db.v_procedures_tumor vpt
+    INNER JOIN fhir_prd_db.patient_access pa ON vpt.patient_fhir_id = pa.id
+    WHERE vpt.pcc_code_coding_code IS NOT NULL
+),
+
+-- Union all sources
+all_findings AS (
+    SELECT * FROM condition_findings
+    UNION ALL
+    SELECT * FROM procedure_findings
+    UNION ALL
+    SELECT * FROM observation_findings
+    UNION ALL
+    SELECT * FROM diagnostic_report_findings
+    UNION ALL
+    SELECT * FROM medication_findings
+    UNION ALL
+    SELECT * FROM allergy_findings
+    UNION ALL
+    SELECT * FROM immunization_findings
+    UNION ALL
+    SELECT * FROM service_request_findings
+    UNION ALL
+    SELECT * FROM list_findings
+    UNION ALL
+    SELECT * FROM request_group_findings
+    UNION ALL
+    SELECT * FROM observation_timing_findings
+    UNION ALL
+    SELECT * FROM procedure_tumor_findings
+)
+
+-- Deduplicate: Keep earliest occurrence per patient + code combination
+-- Output schema matches original problem_list_diagnoses table for compatibility
+SELECT
+    patient_fhir_id as patient_id,
+    mrn,
+    source_id as condition_id,  -- Keep column name for backward compatibility
+    finding_name as diagnosis_name,
+    clinical_status_text,
+    finding_datetime as onset_date_time,
+    NULL as abatement_date_time,  -- Not tracked in most resources
+    finding_datetime as recorded_date,
+    icd10_code,
+    icd10_display,
+    snomed_code,
+    snomed_display,
+    -- Additional context fields (new columns)
+    category,
+    source_type,
+    code,
+    code_display,
+    coding_system
+FROM (
+    SELECT
+        *,
+        -- Deduplicate: Keep earliest finding per patient + code
+        ROW_NUMBER() OVER (
+            PARTITION BY patient_fhir_id, code, coding_system
+            ORDER BY finding_datetime ASC NULLS LAST, source_id
+        ) as rn
+    FROM all_findings
+    WHERE code IS NOT NULL  -- Only include findings with valid codes
+) ranked
+WHERE rn = 1  -- Keep only first occurrence per patient + code
+ORDER BY patient_id, onset_date_time DESC NULLS LAST;

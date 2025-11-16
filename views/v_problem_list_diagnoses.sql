@@ -358,18 +358,18 @@ all_findings AS (
 
 -- Deduplicate and output with original schema
 SELECT
-    patient_id,
+    patient_id as patient_fhir_id,
     mrn,
-    condition_id,
-    diagnosis_name,
-    clinical_status_text,
-    onset_date_time,
-    abatement_date_time,
-    recorded_date,
-    icd10_code,
-    icd10_display,
-    snomed_code,
-    snomed_display
+    condition_id as pld_condition_id,
+    diagnosis_name as pld_diagnosis_name,
+    clinical_status_text as pld_clinical_status,
+    onset_date_time as pld_onset_datetime,
+    abatement_date_time as pld_abatement_datetime,
+    recorded_date as pld_recorded_date,
+    icd10_code as pld_icd10_code,
+    icd10_display as pld_icd10_display,
+    snomed_code as pld_snomed_code,
+    snomed_display as pld_snomed_display
 FROM (
     SELECT
         *,

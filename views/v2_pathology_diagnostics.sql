@@ -21,11 +21,11 @@ tumor_surgeries AS (
         ) as surgery_datetime,
 
         -- Cast best available datetime to date
-        CAST(COALESCE(
+        DATE(COALESCE(
             proc_performed_date_time,
             proc_performed_period_start,
             proc_performed_period_end
-        ) AS DATE) as surgery_date,
+        )) as surgery_date,
 
         -- Data quality metadata: Track which date source was used
         CASE
@@ -62,13 +62,13 @@ surgical_specimens AS (
         s.type_text as specimen_type,
         s.collection_body_site_text as specimen_site,
         CAST(TRY(from_iso8601_timestamp(s.collection_collected_date_time)) AS TIMESTAMP(3)) as collection_datetime,
-        TRY(CAST(CAST(s.collection_collected_date_time AS VARCHAR) AS DATE)) as collection_date
+        DATE(TRY(from_iso8601_timestamp(s.collection_collected_date_time))) as collection_date
     FROM tumor_surgeries ts
     INNER JOIN fhir_prd_db.specimen s
         ON ts.patient_fhir_id = REPLACE(s.subject_reference, 'Patient/', '')
         AND ABS(DATE_DIFF('day',
             ts.surgery_date,
-            TRY(CAST(CAST(s.collection_collected_date_time AS VARCHAR) AS DATE))
+            DATE(TRY(from_iso8601_timestamp(s.collection_collected_date_time)))
         )) <= 7  -- Within 7 days of surgery
     WHERE s.id IS NOT NULL
 ),
@@ -86,7 +86,7 @@ surgical_pathology_observations AS (
         'surgical_pathology_observation' as diagnostic_source,
         o.id as source_id,
         CAST(TRY(from_iso8601_timestamp(o.effective_date_time)) AS TIMESTAMP(3)) as diagnostic_datetime,
-        TRY(CAST(CAST(o.effective_date_time AS VARCHAR) AS DATE)) as diagnostic_date,
+        DATE(TRY(from_iso8601_timestamp(o.effective_date_time))) as diagnostic_date,
 
         -- Observation identification
         o.code_text as diagnostic_name,
@@ -201,7 +201,7 @@ surgical_pathology_narratives AS (
         'surgical_pathology_report' as diagnostic_source,
         dr.id as source_id,
         CAST(TRY(from_iso8601_timestamp(dr.effective_date_time)) AS TIMESTAMP(3)) as diagnostic_datetime,
-        TRY(CAST(CAST(dr.effective_date_time AS VARCHAR) AS DATE)) as diagnostic_date,
+        DATE(TRY(from_iso8601_timestamp(dr.effective_date_time))) as diagnostic_date,
 
         -- Report identification
         dr.code_text as diagnostic_name,
@@ -301,7 +301,7 @@ surgical_pathology_narratives AS (
         END as document_category,
 
         -- Temporal relevance to surgery (days from surgery)
-        ABS(DATE_DIFF('day', ts.surgery_date, TRY(CAST(CAST(dr.effective_date_time AS VARCHAR) AS DATE)))) as days_from_surgery
+        ABS(DATE_DIFF('day', ts.surgery_date, DATE(TRY(from_iso8601_timestamp(dr.effective_date_time))))) as days_from_surgery
 
     FROM tumor_surgeries ts
     INNER JOIN fhir_prd_db.diagnostic_report dr
@@ -321,7 +321,7 @@ surgical_pathology_narratives AS (
     LEFT JOIN surgical_specimens ss
         ON ts.patient_fhir_id = ss.patient_fhir_id
         AND ABS(DATE_DIFF('day',
-            TRY(CAST(CAST(dr.effective_date_time AS VARCHAR) AS DATE)),
+            DATE(TRY(from_iso8601_timestamp(dr.effective_date_time))),
             ss.surgery_date
         )) <= 7
 
@@ -354,7 +354,7 @@ pathology_document_references AS (
         'pathology_document' as diagnostic_source,
         dref.id as source_id,
         CAST(TRY(from_iso8601_timestamp(dref.date)) AS TIMESTAMP(3)) as diagnostic_datetime,
-        TRY(CAST(CAST(dref.date AS VARCHAR) AS DATE)) as diagnostic_date,
+        DATE(TRY(from_iso8601_timestamp(dref.date))) as diagnostic_date,
 
         -- Document identification
         dref.description as diagnostic_name,
@@ -461,7 +461,7 @@ pathology_document_references AS (
         END as document_category,
 
         -- Temporal relevance to surgery (days from surgery)
-        ABS(DATE_DIFF('day', ts.surgery_date, TRY(CAST(CAST(dref.date AS VARCHAR) AS DATE)))) as days_from_surgery
+        ABS(DATE_DIFF('day', ts.surgery_date, DATE(TRY(from_iso8601_timestamp(dref.date))))) as days_from_surgery
 
     FROM tumor_surgeries ts
     INNER JOIN fhir_prd_db.document_reference_context_encounter drce_filter
@@ -483,7 +483,7 @@ pathology_document_references AS (
     LEFT JOIN surgical_specimens ss
         ON ts.patient_fhir_id = ss.patient_fhir_id
         AND ABS(DATE_DIFF('day',
-            TRY(CAST(CAST(dref.date AS VARCHAR) AS DATE)),
+            DATE(TRY(from_iso8601_timestamp(dref.date))),
             ss.surgery_date
         )) <= 7
 
@@ -747,7 +747,7 @@ SELECT
     ud.linked_procedure_id,
     ud.linked_procedure_name,
     ud.linked_procedure_datetime,
-    TRY(DATE_DIFF('day', CAST(ud.linked_procedure_datetime AS DATE), ud.diagnostic_date)) as days_from_procedure,
+    TRY(DATE_DIFF('day', DATE(ud.linked_procedure_datetime), ud.diagnostic_date)) as days_from_procedure,
 
     -- Encounter
     ud.encounter_id,

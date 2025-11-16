@@ -1,7 +1,12 @@
 CREATE OR REPLACE VIEW fhir_prd_db.v_procedures_tumor AS
-WITH oid_reference AS (
+WITH
+-- ============================================================================
+-- OID Reference: Decode coding systems to human-readable labels
+-- ============================================================================
+oid_reference AS (
     SELECT * FROM fhir_prd_db.v_oid_reference
 ),
+
 cpt_classifications AS (
     SELECT
         pcc.procedure_id,
@@ -224,8 +229,8 @@ procedure_dates AS (
     SELECT
         p.id as procedure_id,
         COALESCE(
-            TRY(CAST(SUBSTR(NULLIF(p.performed_date_time, ''), 1, 10) AS DATE)),
-            TRY(CAST(SUBSTR(NULLIF(p.performed_period_start, ''), 1, 10) AS DATE))
+            TRY(CAST(SUBSTR(p.performed_date_time, 1, 10) AS DATE)),
+            TRY(CAST(SUBSTR(p.performed_period_start, 1, 10) AS DATE))
         ) as procedure_date
     FROM fhir_prd_db.procedure p
 ),
@@ -318,12 +323,6 @@ combined_classification AS (
                 AND (pv.has_tumor_reason = true OR pv.has_tumor_body_site = true) THEN true
             WHEN cpt.classification_type IS NULL
                 AND pc.keyword_classification = 'keyword_tumor_specific' THEN true
-            -- V5.0.2 NEW: Fallback for procedures without CPT codes
-            -- If procedure has tumor reason OR tumor body site, consider it a tumor surgery
-            -- This catches "Surgical History" entries and other procedures without structured CPT coding
-            WHEN cpt.classification_type IS NULL
-                AND pc.keyword_classification IS NULL
-                AND (pv.has_tumor_reason = true OR pv.has_tumor_body_site = true) THEN true
 
             ELSE false
         END as is_tumor_surgery,
@@ -428,20 +427,20 @@ SELECT
 
     p.status as proc_status,
     COALESCE(
-        TRY(date_parse(NULLIF(p.performed_date_time, ''), '%Y-%m-%dT%H:%i:%sZ')),
-        TRY(date_parse(NULLIF(p.performed_date_time, ''), '%Y-%m-%d'))
+        TRY(date_parse(p.performed_date_time, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(p.performed_date_time, '%Y-%m-%d'))
     ) as proc_performed_date_time,
     COALESCE(
-        TRY(date_parse(NULLIF(p.performed_period_start, ''), '%Y-%m-%dT%H:%i:%sZ')),
-        TRY(date_parse(NULLIF(p.performed_period_start, ''), '%Y-%m-%d'))
+        TRY(date_parse(p.performed_period_start, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(p.performed_period_start, '%Y-%m-%d'))
     ) as proc_performed_period_start,
     COALESCE(
-        TRY(date_parse(NULLIF(p.performed_period_end, ''), '%Y-%m-%dT%H:%i:%sZ')),
-        TRY(date_parse(NULLIF(p.performed_period_end, ''), '%Y-%m-%d'))
+        TRY(date_parse(p.performed_period_end, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(p.performed_period_end, '%Y-%m-%d'))
     ) as proc_performed_period_end,
     COALESCE(
-        TRY(date_parse(NULLIF(p.performed_string, ''), '%Y-%m-%dT%H:%i:%sZ')),
-        TRY(date_parse(NULLIF(p.performed_string, ''), '%Y-%m-%d'))
+        TRY(date_parse(p.performed_string, '%Y-%m-%dT%H:%i:%sZ')),
+        TRY(date_parse(p.performed_string, '%Y-%m-%d'))
     ) as proc_performed_string,
     p.performed_age_value as proc_performed_age_value,
     p.performed_age_unit as proc_performed_age_unit,
@@ -462,7 +461,7 @@ SELECT
     pd.procedure_date,
 
     TRY(DATE_DIFF('day',
-        DATE(NULLIF(pa.birth_date, '')),
+        DATE(pa.birth_date),
         pd.procedure_date)) as age_at_procedure_days,
 
     pc.code_coding_system as pcc_code_coding_system,
@@ -566,17 +565,7 @@ SELECT
     END as has_minimum_data_quality,
 
     -- 10. SNOMED category code (useful for filtering)
-    pcat.category_coding_code as category_coding_code,
-
-    -- V4.1 Enhancements
-    psl.specimen_id,
-    pp.performer_actor_reference AS performer_org_id,
-    org.name AS performer_org_name,
-    CASE
-        WHEN pp.performer_actor_reference IS NOT NULL THEN 'HIGH'
-        WHEN p.location_reference IS NOT NULL THEN 'MEDIUM'
-        ELSE 'NEEDS_EXTRACTION'
-    END AS institution_confidence
+    pcat.category_coding_code as category_coding_code
 
 FROM fhir_prd_db.procedure p
 LEFT JOIN procedure_dates pd ON p.id = pd.procedure_id
@@ -593,9 +582,5 @@ LEFT JOIN surgical_procedures_link spl ON p.id = spl.procedure_id
 
 -- OID Decoding: Join to OID reference for human-readable coding system labels
 LEFT JOIN oid_reference oid_pc ON pc.code_coding_system = oid_pc.oid_uri
-
--- V4.1 Enhancements
-LEFT JOIN fhir_prd_db.v_procedure_specimen_link psl ON p.id = psl.procedure_id
-LEFT JOIN fhir_prd_db.organization org ON pp.performer_actor_reference = org.id
 
 ORDER BY p.subject_reference, pd.procedure_date;

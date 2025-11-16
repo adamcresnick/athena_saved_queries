@@ -318,12 +318,6 @@ combined_classification AS (
                 AND (pv.has_tumor_reason = true OR pv.has_tumor_body_site = true) THEN true
             WHEN cpt.classification_type IS NULL
                 AND pc.keyword_classification = 'keyword_tumor_specific' THEN true
-            -- V5.0.2 NEW: Fallback for procedures without CPT codes
-            -- If procedure has tumor reason OR tumor body site, consider it a tumor surgery
-            -- This catches "Surgical History" entries and other procedures without structured CPT coding
-            WHEN cpt.classification_type IS NULL
-                AND pc.keyword_classification IS NULL
-                AND (pv.has_tumor_reason = true OR pv.has_tumor_body_site = true) THEN true
 
             ELSE false
         END as is_tumor_surgery,
